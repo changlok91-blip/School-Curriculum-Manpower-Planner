@@ -2,7 +2,22 @@
 
 Component 1 is a command-line Python application for checking curriculum input data and estimating **subject-component group instances** for a Singapore secondary school. It reads editable CSV files, calculates each subject component within its own band and block, and produces detailed results and summaries.
 
-These are preliminary mathematical requirements. They do not establish actual teaching-group arrangements, timetables, or teacher allocations. This component includes no timetable solver, teacher allocator, simulation, optimisation engine, or dashboard. It uses no database, paid API, cloud service, or external data source.
+These are preliminary mathematical requirements. They do not establish actual teaching-group arrangements, timetables, or teacher allocations. This component includes no timetable solver, teacher allocator, simulation, or optimisation engine. An optional Streamlit interface displays the same Component 1 calculations. Calculation needs no database, paid API, cloud service, or external data source.
+
+## Run with Streamlit
+
+The web entry file is **`streamlit_app.py`**, in the repository root.
+
+After creating the virtual environment as described below, run these commands from the repository folder on Windows:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,web]"
+.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
+```
+
+For Streamlit Community Cloud, select this GitHub repository, branch `main`, and main file path **`streamlit_app.py`**. Choose Python 3.11 or newer in advanced settings. The root `requirements.txt` installs Streamlit automatically. No secrets are required.
+
+The interface reads the repository's three `data/` CSV files, validates them, and shows detailed results and summaries. Select a cohort and preferred or hard group limits in the sidebar. Download buttons export the selected cohort's results as CSV. Edit the CSV files in the repository to change inputs; the web interface does not save data edits.
 
 ## Install on Windows
 
@@ -178,6 +193,8 @@ School-Curriculum-Manpower-Planner/
 │   ├── enrolments.csv
 │   └── subject_rules.csv
 ├── tests/
+├── streamlit_app.py
+├── requirements.txt
 ├── .gitignore
 ├── pyproject.toml
 └── README.md

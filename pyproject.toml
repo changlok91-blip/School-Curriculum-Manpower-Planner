@@ -11,6 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
+web = ["streamlit>=1.40,<2"]
 
 [project.scripts]
 curriculum-planner = "curriculum_planner.cli:main"
