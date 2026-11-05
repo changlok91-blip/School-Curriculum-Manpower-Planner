@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "school-curriculum-manpower-planner"
+version = "0.1.0"
+description = "CSV-based school teaching-group calculations (Component 1)"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+curriculum-planner = "curriculum_planner.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["curriculum_planner*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
