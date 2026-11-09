@@ -1,0 +1,4 @@
+scenario_id,window_id,window_name
+simultaneous_science,SCIENCE_ALL,All configured Biology groups
+separate_science,SCIENCE_A,Block A Biology window
+separate_science,SCIENCE_B,Block B Biology window

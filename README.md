@@ -187,11 +187,24 @@ School-Curriculum-Manpower-Planner/
 │   ├── validation.py
 │   ├── calculation.py
 │   ├── reporting.py
-│   └── cli.py
+│   ├── cli.py
+│   └── scheduling/
+│       ├── models.py
+│       ├── groups.py
+│       ├── loading.py
+│       ├── validation.py
+│       ├── assignments.py
+│       ├── calculation.py
+│       ├── reporting.py
+│       └── cli.py
 ├── data/
 │   ├── blocks.csv
 │   ├── enrolments.csv
-│   └── subject_rules.csv
+│   ├── subject_rules.csv
+│   ├── scenarios.csv
+│   ├── teaching_windows.csv
+│   ├── group_assignments.csv
+│   └── teacher_pools.csv
 ├── tests/
 ├── streamlit_app.py
 ├── requirements.txt
@@ -200,4 +213,111 @@ School-Curriculum-Manpower-Planner/
 └── README.md
 ```
 
-Data loading, validation, calculation, and reporting are separate from the CLI. A future interface can call those modules without embedding the calculation in a screen or command handler. This implementation stops at Component 1.
+Data loading, validation, calculation, and reporting are separate from the CLI. A future interface can call those modules without embedding the calculation in a screen or command handler. Component 2 adds a separate scheduling package and leaves the Component 1 calculation and Streamlit interface intact. Development stops at Component 2.
+
+## Component 2: teaching-window concurrency
+
+Component 2 places selected Component 1 teaching-group instances into manually configured, abstract teaching windows. Activities in the same window are simultaneous; different windows are treated as non-overlapping. The number and names of blocks, bands, scenarios, windows, and teacher pools are editable data, not fixed engine rules.
+
+Each placed group requires one teacher from its assigned resource pool. A pool's demand in a window is the number of groups assigned to that pool and window, including groups from different subjects or blocks. Its peak simultaneous demand is the **maximum across windows**, never their sum. A concurrency violation occurs when a pool's demand in one window exceeds its configured available teacher count.
+
+Windows are not weekly timetable periods. This component does not generate timetables, calculate teaching periods, allocate named teachers, or optimise assignments. The existing Streamlit app continues to display Component 1 only; use the CLI below for Component 2.
+
+### Run Component 2 on Windows
+
+Use the same virtual environment and installation described above. No additional dependencies are needed. Run these commands from the repository folder:
+
+```powershell
+# List the configured scenarios.
+.\.venv\Scripts\python.exe -m curriculum_planner scenarios list
+
+# Validate Component 1 inputs and all scenario inputs.
+.\.venv\Scripts\python.exe -m curriculum_planner scenarios validate
+
+# See every generated teaching-group identifier, or export the inventory.
+.\.venv\Scripts\python.exe -m curriculum_planner scenarios groups
+.\.venv\Scripts\python.exe -m curriculum_planner scenarios groups --output output/teaching_groups.csv
+
+# Run either Biology demonstration.
+.\.venv\Scripts\python.exe -m curriculum_planner scenarios run simultaneous_science
+.\.venv\Scripts\python.exe -m curriculum_planner scenarios run separate_science
+
+# Compare two or more distinct scenarios.
+.\.venv\Scripts\python.exe -m curriculum_planner scenarios compare simultaneous_science separate_science
+
+# Export one or more scenarios and their comparison.
+.\.venv\Scripts\python.exe -m curriculum_planner scenarios export simultaneous_science separate_science --output-dir output/scenarios
+```
+
+For an alternative set of inputs, add `--data-dir "C:\School\planning-data"` after the leaf command (for example, after `run separate_science`). That directory must contain the three Component 1 CSVs and the four Component 2 CSVs. The `--use-hard-max` option selects Component 1's hard-limit calculation for the generated group inventory; preferred limits remain the default. Revalidate assignments after changing limits or enrolments because some previously generated group IDs may no longer exist.
+
+### Edit the scenario files
+
+The original `blocks.csv`, `enrolments.csv`, and `subject_rules.csv` remain the source of teaching-group counts. Do not enter those counts again in the scheduling data. Generate the inventory with `scenarios groups` and copy the appropriate IDs into assignments.
+
+The four additional editable CSVs have these headers:
+
+| File | Columns |
+| --- | --- |
+| `scenarios.csv` | `scenario_id,scenario_name,description` |
+| `teaching_windows.csv` | `scenario_id,window_id,window_name` |
+| `group_assignments.csv` | `scenario_id,window_id,teaching_group_id,teacher_pool_id` |
+| `teacher_pools.csv` | `scenario_id,teacher_pool_id,pool_name,available_teacher_count` |
+
+Keep the headers unchanged and save UTF-8 CSV. Description may be blank. Teacher counts must be nonnegative integers; zero availability is valid and makes every positive demand a shortage. Window and pool identifiers are scoped to their scenario, so another scenario can reuse them. Each group can be placed at most once per scenario, even if its second placement names a different window or pool. Unknown groups, windows, pools, or scenarios and duplicate placements must be corrected before simulation.
+
+A teaching-group ID contains the year, level, block, band, subject ID, and a one-based group number. For example:
+
+```text
+2027/Sec3/A/Science/G3_PURE_BIOLOGY/1
+```
+
+Each segment is URL-encoded so identifiers containing reserved characters do not collide. IDs remain stable when CSV rows are reordered, display names change, or unrelated blocks and subjects are added. If a component grows from two groups to three, the existing first and second IDs remain and a third is added. Renaming an identity field or reducing the calculated number of groups can invalidate assignments, which validation reports. Generated `component_student_count` is the whole subject-component enrolment, **not** the number of students in each individual group; this component does not invent a pupil distribution among groups.
+
+Resource pool membership is explicit in each assignment. By assigning a group to a pool, the user asserts that the pool is qualified and available for that group. The engine does not infer qualifications from a subject name, and does not treat all Science teachers as interchangeable. For the demonstration only, the Biology pool is assumed to contain two teachers qualified for all four selected Biology groups.
+
+### Biology demonstration results
+
+The four supplied groups are:
+
+| Block | Subject component | Students | Group instances |
+| --- | --- | ---: | ---: |
+| A | G3 Pure Biology | 14 | 1 |
+| A | G3 Science (Bio) | 34 | 1 |
+| B | G3 Science (Bio) | 17 | 1 |
+| B | G2 Science (Bio) | 40 | 1 |
+
+These are the existing **2027 Sec 3** records. The Component 2 request calls them 2026, but no 2026 dataset was supplied. The historical year and all original input values are preserved.
+
+| Scenario ID | Windows used | Groups scheduled | Groups unscheduled | Biology teachers available | Peak demand | Maximum shortage | Pool-window violations |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `simultaneous_science` | 1 | 4 | 66 | 2 | 4 | 2 | 1 |
+| `separate_science` | 2 | 4 | 66 | 2 | 2 | 0 | 0 |
+
+The simultaneous scenario places all four groups in one window and violates the configured concurrency constraint. The separate scenario places Block A's two groups in one window and Block B's two in another: each window requires two teachers. It satisfies the concurrency constraint **for those four configured groups only**. Both scenarios still contain four Biology groups, and the baseline inventory remains 70 group instances (27 for A and 43 for B).
+
+### Exported reports
+
+`scenarios export` writes these files in the selected output directory:
+
+| Report | Contents |
+| --- | --- |
+| `window_summary.csv` | Scenario, window, block, band, group IDs, resource pool, demand, availability, and shortage |
+| `resource_pool_summary.csv` | Each pool's available teachers, peak simultaneous demand, maximum shortage, and concurrency status |
+| `unscheduled_groups.csv` | Every group not placed in each selected scenario, with its source component identity |
+| `scenario_comparison.csv` | Defined/used windows, scheduled/unscheduled counts, peak demand by pool, violation count, and assessment limitations |
+| `teaching_groups.csv` | Generated Component 1 group inventory, including stable IDs for editing assignments |
+
+The window report retains block and band context: one row represents a window/pool/year/level/block/band slice. `teaching_group_ids` lists its IDs separated by semicolons, and `group_count` is that slice's group count. `concurrent_demand` and `shortage` describe the **entire pool in the window**, so they can repeat across block/band rows. Do not sum repeated demand or shortage values; use `group_count` for slice totals and the resource-pool report for peaks. Configured empty window/pool combinations have zero demand.
+
+In the comparison, `teaching_windows` counts all configured windows and `windows_used` counts those with assigned groups. `concurrency_violations` counts distinct over-capacity pool/window combinations. `peak_concurrent_demand_by_pool` is a JSON object keyed by pool ID. A partially scheduled scenario is marked partial; placing every group still means only the concurrency checks have been assessed.
+
+### What this assessment cannot establish
+
+- **Other groups:** the Biology examples place 4 of 70 group instances. The remaining 66 are explicitly unscheduled and unassessed, so neither result establishes whole-cohort or whole-school scheduling feasibility.
+- **Student conflicts:** individual student subject selections are unavailable. A student may appear in more than one component, and student-level timetable compatibility remains unverified.
+- **Shared teachers:** pool membership is manually configured. If one teacher belongs to two pools, the engine cannot detect or prevent that person's capacity being counted twice. Cross-subject teacher sharing is not validated.
+- **Weekly capacity:** passing a concurrency check does not show that teachers have enough total weekly teaching capacity or suitable individual availability.
+- **Finite timetable:** more abstract windows can lower peak demand, but those windows must eventually fit into a finite school timetable. Full timetable feasibility is not yet assessed, even when every group has been placed.
+
+Before Component 2 changes, all **43 existing tests passed**. After implementation, all **80 tests passed** (the original 43 plus 37 Component 2 tests). Run the full suite with `.\.venv\Scripts\python.exe -m pytest` to check Component 1 and Component 2 together. No Component 3 teaching-period or optimisation functionality is included.

@@ -11,7 +11,7 @@ from .validation import validate_data
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="School Curriculum & Manpower Planner — Component 1")
+    parser = argparse.ArgumentParser(description="School Curriculum & Manpower Planner — Components 1 and 2")
     commands = parser.add_subparsers(dest="command", required=True)
     for command, description in (
         ("validate", "Validate all editable input files"),
@@ -24,12 +24,17 @@ def _parser() -> argparse.ArgumentParser:
             sub.add_argument("--use-hard-max", action="store_true", help="Plan using hard limits instead of preferred limits")
         if command == "export":
             sub.add_argument("--output-dir", type=Path, default=Path("output"), help="Export directory (default: output)")
+    from .scheduling.cli import register_commands
+    register_commands(commands)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "scenarios":
+            from .scheduling.cli import run_command
+            return run_command(args)
         dataset = load_data(args.data_dir)
         errors = validate_data(dataset)
         if errors:

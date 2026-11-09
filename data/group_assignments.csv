@@ -1,0 +1,9 @@
+scenario_id,window_id,teaching_group_id,teacher_pool_id
+simultaneous_science,SCIENCE_ALL,2027/Sec3/A/Science/G3_PURE_BIOLOGY/1,BIOLOGY
+simultaneous_science,SCIENCE_ALL,2027/Sec3/A/Science/G3_SCIENCE_BIO/1,BIOLOGY
+simultaneous_science,SCIENCE_ALL,2027/Sec3/B/Science/G3_SCIENCE_BIO/1,BIOLOGY
+simultaneous_science,SCIENCE_ALL,2027/Sec3/B/Science/G2_SCIENCE_BIO/1,BIOLOGY
+separate_science,SCIENCE_A,2027/Sec3/A/Science/G3_PURE_BIOLOGY/1,BIOLOGY
+separate_science,SCIENCE_A,2027/Sec3/A/Science/G3_SCIENCE_BIO/1,BIOLOGY
+separate_science,SCIENCE_B,2027/Sec3/B/Science/G3_SCIENCE_BIO/1,BIOLOGY
+separate_science,SCIENCE_B,2027/Sec3/B/Science/G2_SCIENCE_BIO/1,BIOLOGY

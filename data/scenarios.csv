@@ -1,0 +1,3 @@
+scenario_id,scenario_name,description
+simultaneous_science,Simultaneous Science groups,Four configured Biology groups share one abstract teaching window.
+separate_science,Separate Science windows,The two Block A Biology groups and two Block B Biology groups use separate abstract windows.
