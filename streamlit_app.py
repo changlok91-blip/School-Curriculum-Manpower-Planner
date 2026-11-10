@@ -93,7 +93,8 @@ def show_scenarios(data):
 def main():
     st.set_page_config(page_title="School Curriculum Planner", layout="wide")
     st.title("School Curriculum & Manpower Planner")
-    page = st.sidebar.radio("Page", ["Teaching groups (Component 1)", "Concurrency scenarios (Component 2)"])
+    page = st.sidebar.radio("Page", ["Teaching groups (Component 1)", "Concurrency scenarios (Component 2)",
+                                     "Curriculum workload (Component 3)"])
     st.info(
         "Results are provisional subject-component group instances. "
         "They do not establish a timetable or teacher allocation."
@@ -113,6 +114,10 @@ def main():
 
     if page == "Concurrency scenarios (Component 2)":
         show_scenarios(data)
+        return
+    if page == "Curriculum workload (Component 3)":
+        from curriculum_planner.workload.web import render_workload_page
+        render_workload_page(data, Path(__file__).resolve().parent / "data")
         return
     st.caption("Component 1 · Teaching group calculator")
     cohorts = sorted({(block.academic_year, block.level) for block in data.blocks})

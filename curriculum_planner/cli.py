@@ -11,7 +11,7 @@ from .validation import validate_data
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="School Curriculum & Manpower Planner — Components 1 and 2")
+    parser = argparse.ArgumentParser(description="School Curriculum & Manpower Planner — Components 1, 2 and 3")
     commands = parser.add_subparsers(dest="command", required=True)
     for command, description in (
         ("validate", "Validate all editable input files"),
@@ -26,6 +26,8 @@ def _parser() -> argparse.ArgumentParser:
             sub.add_argument("--output-dir", type=Path, default=Path("output"), help="Export directory (default: output)")
     from .scheduling.cli import register_commands
     register_commands(commands)
+    from .workload.cli import register_commands as register_workload_commands
+    register_workload_commands(commands)
     return parser
 
 
@@ -34,6 +36,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "scenarios":
             from .scheduling.cli import run_command
+            return run_command(args)
+        if args.command == "workload":
+            from .workload.cli import run_command
             return run_command(args)
         dataset = load_data(args.data_dir)
         errors = validate_data(dataset)

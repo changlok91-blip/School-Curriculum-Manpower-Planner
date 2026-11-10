@@ -17,9 +17,9 @@ After creating the virtual environment as described below, run these commands fr
 
 For Streamlit Community Cloud, select this GitHub repository, branch `main`, and main file path **`streamlit_app.py`**. Choose Python 3.11 or newer in advanced settings. The root `requirements.txt` installs Streamlit automatically. No secrets are required.
 
-Use the sidebar **Page** selector to switch between **Teaching groups (Component 1)** and **Concurrency scenarios (Component 2)**. Component 1 reads the three historical CSV files and shows cohort calculations. Component 2 also reads the four scenario CSV files: choose a scheduling scenario to view teacher-pool peaks and shortages, window demand, unscheduled groups, and a comparison of all configured scenarios. Both pages support preferred or hard group limits and CSV downloads. Scenario assessments cover the full generated inventory across the input cohorts. Edit the CSV files in the repository to change inputs; the web interface does not save data edits.
+Use the sidebar **Page** selector to switch between **Teaching groups (Component 1)**, **Concurrency scenarios (Component 2)**, and the Component 3 curriculum workload page. Component 1 reads the three historical CSV files and shows cohort calculations. Component 2 also reads the four scenario CSV files: choose a scheduling scenario to view teacher-pool peaks and shortages, window demand, unscheduled groups, and a comparison of all configured scenarios. The workload page selects a period duration and optionally retains a Component 2 scenario's window metadata; it shows known workload, missing requirements, and CSV downloads. The pages support preferred or hard group limits and CSV downloads. Scenario assessments cover the full generated inventory across the input cohorts. Edit the CSV files in the repository to change inputs; the web interface does not save data edits.
 
-After pulling updates, the deployment entry file remains `streamlit_app.py` on `main`. Streamlit Community Cloud normally picks up pushed changes automatically; if it still displays the previous interface, reboot the app from its management menu. No new secrets or dependencies are required for the Component 2 page.
+After pulling updates, the deployment entry file remains `streamlit_app.py` on `main`. Streamlit Community Cloud normally picks up pushed changes automatically; if it still displays the previous interface, reboot the app from its management menu. No new secrets or dependencies are required for the Component 2 or Component 3 pages.
 
 ## Install on Windows
 
@@ -190,15 +190,25 @@ School-Curriculum-Manpower-Planner/
 │   ├── calculation.py
 │   ├── reporting.py
 │   ├── cli.py
-│   └── scheduling/
+│   ├── scheduling/
+│   │   ├── models.py
+│   │   ├── groups.py
+│   │   ├── loading.py
+│   │   ├── validation.py
+│   │   ├── assignments.py
+│   │   ├── calculation.py
+│   │   ├── reporting.py
+│   │   └── cli.py
+│   └── workload/
 │       ├── models.py
-│       ├── groups.py
 │       ├── loading.py
 │       ├── validation.py
-│       ├── assignments.py
+│       ├── periods.py
 │       ├── calculation.py
+│       ├── comparison.py
 │       ├── reporting.py
-│       └── cli.py
+│       ├── cli.py
+│       └── web.py
 ├── data/
 │   ├── blocks.csv
 │   ├── enrolments.csv
@@ -206,7 +216,11 @@ School-Curriculum-Manpower-Planner/
 │   ├── scenarios.csv
 │   ├── teaching_windows.csv
 │   ├── group_assignments.csv
-│   └── teacher_pools.csv
+│   ├── teacher_pools.csv
+│   ├── curriculum_requirements.csv
+│   └── period_scenarios.csv
+├── docs/
+│   └── workload_csv_contract.md
 ├── tests/
 ├── streamlit_app.py
 ├── requirements.txt
@@ -215,7 +229,7 @@ School-Curriculum-Manpower-Planner/
 └── README.md
 ```
 
-Data loading, validation, calculation, and reporting are separate from the CLI. A future interface can call those modules without embedding the calculation in a screen or command handler. Component 2 adds a separate scheduling package and leaves the Component 1 calculation and Streamlit interface intact. Development stops at Component 2.
+Data loading, validation, calculation, and reporting are separate from the CLI. A future interface can call those modules without embedding the calculation in a screen or command handler. Component 2 adds a separate scheduling package and leaves the Component 1 calculation and Streamlit interface intact. Component 3 adds a separate workload package using the same generated teaching groups. Development stops at Component 3.
 
 ## Component 2: teaching-window concurrency
 
@@ -322,4 +336,125 @@ In the comparison, `teaching_windows` counts all configured windows and `windows
 - **Weekly capacity:** passing a concurrency check does not show that teachers have enough total weekly teaching capacity or suitable individual availability.
 - **Finite timetable:** more abstract windows can lower peak demand, but those windows must eventually fit into a finite school timetable. Full timetable feasibility is not yet assessed, even when every group has been placed.
 
-Before Component 2 changes, all **43 existing tests passed**. After implementation, all **80 tests passed** (the original 43 plus 37 Component 2 tests). Run the full suite with `.\.venv\Scripts\python.exe -m pytest` to check Component 1 and Component 2 together. No Component 3 teaching-period or optimisation functionality is included.
+Before Component 2 changes, all **43 existing tests passed**. After implementation, all **80 tests passed** (the original 43 plus 37 Component 2 tests). Run the full suite with `.\.venv\Scripts\python.exe -m pytest` to check Component 1 and Component 2 together. Those results record the Component 2 implementation stage; Component 3 is described below.
+
+## Component 3: curriculum time and weekly teaching workload
+
+Component 3 converts each generated teaching group's curriculum minutes into required weekly periods, then sums the resulting teacher workload by subject, band, block, and level. It reads Component 1's calculated group instances through the existing Component 2 group expansion; there is no second database of group numbers. If a component grows from 40 to 41 students with a maximum size of 40, its second group automatically contributes another group's workload.
+
+The supplied curriculum minutes are **synthetic demonstration values, not official MOE requirements**. Only three Biology subject components have a time rule. They cover four of the historical 70 teaching-group instances; the remaining **66 groups have missing time requirements**. The historical data remains **2027 Sec 3**. The request mentions 2026, but no 2026 figures were supplied, so the existing year and original enrolments are preserved.
+
+### Run Component 3 on Windows
+
+Use the existing virtual environment. No additional dependencies are required. Run from the repository folder:
+
+```powershell
+# List the editable period-duration scenarios.
+.\.venv\Scripts\python.exe -m curriculum_planner workload list
+
+# Check curriculum requirements and report missing time data.
+.\.venv\Scripts\python.exe -m curriculum_planner workload validate
+
+# Calculate weekly workload under 30-minute periods.
+.\.venv\Scripts\python.exe -m curriculum_planner workload run p30
+
+# Retain an existing Component 2 scenario's teaching-window metadata.
+.\.venv\Scripts\python.exe -m curriculum_planner workload run p30 --teaching-scenario separate_science
+
+# Compare all four initial period lengths.
+.\.venv\Scripts\python.exe -m curriculum_planner workload compare p15 p20 p30 p35
+
+# Export detailed, summary, comparison, and completeness reports.
+.\.venv\Scripts\python.exe -m curriculum_planner workload export p15 p20 p30 p35 --output-dir output/workload
+```
+
+For the supplied demonstration, `workload validate` intentionally reports missing requirements and returns a nonzero exit status. Its known Biology rules can still be calculated: `run`, `compare`, and `export` produce clearly labelled partial results. Missing curriculum data must be supplied before claiming a complete cohort workload.
+
+Add options after the leaf command or scenario IDs:
+
+- `--data-dir "C:\School\planning-data"` selects another input folder.
+- `--academic-year 2027 --level Sec3` restricts the reported cohort.
+- `--use-hard-max` generates groups using Component 1's hard sizes instead of preferred sizes.
+- `--teaching-scenario separate_science` retains that Component 2 scenario's assignment metadata. Its scenario CSV files are needed only when this option is used.
+
+Changing teaching-window placement does not change weekly curriculum minutes or teacher-periods. All generated groups remain in the workload assessment, including those without a window assignment. Windows identify possible simultaneous commitments; they do not place the calculated weekly lessons into a timetable.
+
+In Streamlit, open the Component 3 workload page from the sidebar, select a period scenario and optional teaching-window scenario, and review the data-completeness warning before using a subtotal. The existing launch file is still `streamlit_app.py`.
+
+### Edit curriculum time requirements
+
+`data/curriculum_requirements.csv` uses a unique `(academic_year, level, subject_id)` key:
+
+```csv
+academic_year,level,subject_id,minimum_weekly_minutes,requirement_source,requirement_scope
+2027,Sec3,G3_PURE_BIOLOGY,150,SYNTHETIC EXAMPLE - not official,component
+2027,Sec3,G3_SCIENCE_BIO,150,SYNTHETIC EXAMPLE - not official,component
+2027,Sec3,G2_SCIENCE_BIO,150,SYNTHETIC EXAMPLE - not official,component
+```
+
+The first four columns are required. `requirement_source` and `requirement_scope` are optional; their defaults are `user supplied; unverified` and `component`. Provenance is retained in the group report and in each summary's `requirement_sources` field, including the explicit synthetic-example label. Weekly minutes must be finite, nonnegative numeric values. Fractional minutes are supported. A missing rule is unknown, not zero; an explicit valid zero-minute rule has zero required periods.
+
+Subject IDs reference existing Component 1 subject rules, and year/level references identify existing cohorts. Duplicate or conflicting keys are invalid. Unknown subject IDs, negative minutes, and invalid component rules are flagged; affected groups cannot contribute a calculated workload.
+
+Pure Chemistry, Science (Chem), Science (Phy), and Science (Bio) remain distinct components, as do Social Studies and Humanities electives. Give each component its own reliably allocated time requirement. A full combined-subject requirement is never copied onto every component. If an allocation is unknown, keep those component rules missing or flag the relevant record with `requirement_scope=combined_unallocated`. The calculator reports that component workload cannot yet be calculated reliably and does not invent a split. Component enrolments can overlap and remain unrelated to unique student population totals.
+
+### Edit period-duration scenarios
+
+`data/period_scenarios.csv` contains:
+
+```csv
+period_scenario_id,scenario_name,period_duration_minutes
+p15,15-minute periods,15
+p20,20-minute periods,20
+p30,30-minute periods,30
+p35,35-minute periods,35
+```
+
+Add rows for other strictly positive, finite period durations, including fractional durations. Period-duration scenario IDs are separate from Component 2's teaching-window scenario IDs. Invalid or duplicate selected period scenarios are rejected.
+
+For every teaching group, the calculator rounds up independently:
+
+```text
+required_periods = ceiling(minimum_weekly_minutes / period_duration_minutes)
+scheduled_minutes = required_periods × period_duration_minutes
+excess_minutes = scheduled_minutes − minimum_weekly_minutes
+```
+
+Aggregating follows this per-group rounding. Three groups receiving five periods each consume **15 teacher-periods**, even if they run concurrently for only five elapsed timetable periods. Scheduled minutes are the minutes implied by the rounded curriculum requirement; they are not evidence that lessons have been placed into an actual weekly schedule.
+
+### Four-group Biology worked example
+
+Each of the four Biology groups used in Component 2 has a **synthetic 150-minute weekly requirement**. The G3 Science (Bio) rule applies to its separate groups in Blocks A and B, giving a known minimum of **600 teacher-minutes per week**.
+
+| Period scenario | Period duration (minutes) | Required periods per group | Known total teacher-periods | Known scheduled teacher-minutes | Known excess teacher-minutes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `p15` | 15 | 10 | 40 | 600 | 0 |
+| `p20` | 20 | 8 | 32 | 640 | 40 |
+| `p30` | 30 | 5 | 20 | 600 | 0 |
+| `p35` | 35 | 5 | 20 | 700 | 100 |
+
+These subtotals cover **4 of 70 groups**. They do not represent the whole cohort's weekly workload. The other 66 groups, covering 34 subject components without time rules, are listed in the completeness report rather than assigned guessed minutes. Component 2's simultaneous and separate Biology windows retain their different concurrent demands of four and two teachers; their weekly workload is the same for a given period duration.
+
+### Workload CSV reports
+
+The export command writes:
+
+| File | Contents |
+| --- | --- |
+| `teaching_group_workload.csv` | Every generated group, its identity and optional window/pool metadata, curriculum minutes, period conversion, provenance, and calculation status |
+| `subject_workload_summary.csv` | Group counts and workload subtotals by subject within year and level |
+| `block_workload_summary.csv` | Workload by block, plus separate band breakdown rows |
+| `cohort_workload_summary.csv` | Workload and coverage by year and level for each selected period scenario |
+| `period_duration_comparison.csv` | The same cohort measures compared across the selected period durations |
+| `data_completeness.csv` | Each group whose workload is unknown because a requirement is missing or invalid |
+| `validation_issues.csv` | Input problems associated with the selected period scenarios |
+
+`known_required_teacher_periods`, `known_scheduled_teacher_minutes`, `known_minimum_teacher_minutes`, and `known_excess_teacher_minutes` cover calculated groups only. `calculated_group_count` and `uncalculated_group_count` identify coverage. Complete-total fields such as `total_required_teacher_periods` and `total_scheduled_teacher_minutes` stay blank when the total cannot be claimed complete. Blank values mean unknown, not zero. Read `assessment_completeness` before interpreting a summary. Zero teaching groups produce zero workload.
+
+The [CSV import/export contract](docs/workload_csv_contract.md) documents headers, units, keys, optional provenance, and missing-data meanings for eventual exchange with another period simulator. No other repository is imported or merged.
+
+### Scope and validation evidence
+
+All **82 existing tests passed before Component 3 changes**. After implementation, all **127 tests passed**, including the original tests and 45 new workload and interface tests. Run `.\.venv\Scripts\python.exe -m pytest` to verify the complete current suite, including the existing Streamlit, grouping, and concurrency checks.
+
+Component 3 calculates weekly curriculum workload, not individual teacher deployment or staffing sufficiency. It does not apply teacher workload limits, infer qualifications, allocate student combinations, generate a full timetable, or optimise blocks. Student compatibility, shared teachers across resource pools, and actual weekly lesson placement remain unverified. Development stops after Component 3.

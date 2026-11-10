@@ -1,0 +1,5 @@
+period_scenario_id,scenario_name,period_duration_minutes
+p15,15-minute periods,15
+p20,20-minute periods,20
+p30,30-minute periods,30
+p35,35-minute periods,35
