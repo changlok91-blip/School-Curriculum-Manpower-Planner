@@ -1,4 +1,4 @@
-"""Streamlit entry point for the Component 1 calculator."""
+"""Streamlit entry point for teaching-group and concurrency assessments."""
 
 import csv
 from dataclasses import asdict, fields
@@ -11,6 +11,14 @@ from curriculum_planner import (
     DataLoadError, Dataset, GroupResult, SummaryRow,
     calculate_groups, load_data, summarize, validate_data,
 )
+from curriculum_planner.scheduling.calculation import run_scenario
+from curriculum_planner.scheduling.groups import generate_teaching_groups
+from curriculum_planner.scheduling.loading import load_scheduling
+from curriculum_planner.scheduling.models import (
+    PoolSummary, ScenarioComparison, TeachingGroup, UnscheduledGroup, WindowSummary,
+)
+from curriculum_planner.scheduling.reporting import ASSESSMENT_LIMITS
+from curriculum_planner.scheduling.validation import validate_scheduling
 
 
 def csv_download(rows, row_type):
@@ -21,10 +29,71 @@ def csv_download(rows, row_type):
     return buffer.getvalue().encode("utf-8-sig")
 
 
+def show_scenarios(data):
+    st.caption("Component 2 · Teaching-window concurrency")
+    use_preferred = st.sidebar.checkbox("Use preferred group sizes", value=True)
+    try:
+        groups = generate_teaching_groups(calculate_groups(data, use_preferred=use_preferred))
+        scheduling = load_scheduling(Path(__file__).resolve().parent / "data")
+        errors = validate_scheduling(scheduling, groups)
+        if errors:
+            raise ValueError("\n".join(errors))
+        names = {s.scenario_id: s.scenario_name for s in scheduling.scenarios}
+        scenario_id = st.sidebar.selectbox(
+            "Scheduling scenario", list(names),
+            format_func=lambda identifier: f"{names[identifier]} ({identifier})",
+        )
+        assessments = [run_scenario(groups, scheduling, identifier) for identifier in names]
+    except (DataLoadError, ValueError) as exc:
+        st.error(f"Correct the scenario input files before assessing concurrency: {exc}")
+        st.stop()
+    result = next(item for item in assessments if item.scenario.scenario_id == scenario_id)
+    comparison = result.comparison
+    st.subheader(result.scenario.scenario_name)
+    st.write(result.scenario.description)
+    scheduled, unscheduled, windows, violations = st.columns(4)
+    scheduled.metric("Groups scheduled", comparison.scheduled_group_instances)
+    unscheduled.metric("Groups unscheduled / unassessed", comparison.unscheduled_group_instances)
+    windows.metric("Windows used", comparison.windows_used)
+    violations.metric("Pool/window violations", comparison.concurrency_violations)
+    st.caption(f"{comparison.total_group_instances} total subject-component group instances; "
+               f"{comparison.teaching_windows} windows configured. Abstract windows are not weekly periods.")
+    if comparison.unscheduled_group_instances:
+        st.warning(f"Partial assessment: {comparison.unscheduled_group_instances} groups remain unassessed. "
+                   "This does not establish whole-cohort scheduling feasibility.")
+    if comparison.concurrency_violations:
+        st.error(comparison.concurrency_status)
+    elif comparison.scheduled_group_instances:
+        st.success(comparison.concurrency_status)
+    else:
+        st.warning(comparison.concurrency_status)
+    for limitation in ASSESSMENT_LIMITS:
+        st.caption(limitation)
+
+    tabs = st.tabs(["Teacher pools", "Teaching windows", "Unscheduled groups", "Compare scenarios"])
+    reports = [
+        (tabs[0], result.resource_pool_summary, PoolSummary, "resource_pool_summary.csv"),
+        (tabs[1], result.window_summary, WindowSummary, "window_summary.csv"),
+        (tabs[2], result.unscheduled_groups, UnscheduledGroup, "unscheduled_groups.csv"),
+        (tabs[3], [item.comparison for item in assessments], ScenarioComparison, "scenario_comparison.csv"),
+    ]
+    for tab, rows, row_type, filename in reports:
+        with tab:
+            if row_type is WindowSummary:
+                st.caption("group_count counts the block/band slice. concurrent_demand and shortage "
+                           "repeat the entire pool/window total; do not sum those repeated values.")
+            st.dataframe([asdict(row) for row in rows], use_container_width=True, hide_index=True)
+            st.download_button("Download CSV", csv_download(rows, row_type),
+                               file_name=filename, mime="text/csv", key=filename)
+    st.download_button("Download teaching-group inventory", csv_download(groups, TeachingGroup),
+                       file_name="teaching_groups.csv", mime="text/csv")
+    st.sidebar.caption("Edit the scenario CSV files in data/ to change windows, placements or teacher pools.")
+
+
 def main():
     st.set_page_config(page_title="School Curriculum Planner", layout="wide")
     st.title("School Curriculum & Manpower Planner")
-    st.caption("Component 1 · Teaching group calculator")
+    page = st.sidebar.radio("Page", ["Teaching groups (Component 1)", "Concurrency scenarios (Component 2)"])
     st.info(
         "Results are provisional subject-component group instances. "
         "They do not establish a timetable or teacher allocation."
@@ -42,6 +111,10 @@ def main():
             st.error(error)
         st.stop()
 
+    if page == "Concurrency scenarios (Component 2)":
+        show_scenarios(data)
+        return
+    st.caption("Component 1 · Teaching group calculator")
     cohorts = sorted({(block.academic_year, block.level) for block in data.blocks})
     year, level = st.sidebar.selectbox(
         "Cohort", cohorts, format_func=lambda cohort: f"{cohort[0]} · {cohort[1]}"

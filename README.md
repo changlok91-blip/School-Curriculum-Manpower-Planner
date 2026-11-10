@@ -17,7 +17,9 @@ After creating the virtual environment as described below, run these commands fr
 
 For Streamlit Community Cloud, select this GitHub repository, branch `main`, and main file path **`streamlit_app.py`**. Choose Python 3.11 or newer in advanced settings. The root `requirements.txt` installs Streamlit automatically. No secrets are required.
 
-The interface reads the repository's three `data/` CSV files, validates them, and shows detailed results and summaries. Select a cohort and preferred or hard group limits in the sidebar. Download buttons export the selected cohort's results as CSV. Edit the CSV files in the repository to change inputs; the web interface does not save data edits.
+Use the sidebar **Page** selector to switch between **Teaching groups (Component 1)** and **Concurrency scenarios (Component 2)**. Component 1 reads the three historical CSV files and shows cohort calculations. Component 2 also reads the four scenario CSV files: choose a scheduling scenario to view teacher-pool peaks and shortages, window demand, unscheduled groups, and a comparison of all configured scenarios. Both pages support preferred or hard group limits and CSV downloads. Scenario assessments cover the full generated inventory across the input cohorts. Edit the CSV files in the repository to change inputs; the web interface does not save data edits.
+
+After pulling updates, the deployment entry file remains `streamlit_app.py` on `main`. Streamlit Community Cloud normally picks up pushed changes automatically; if it still displays the previous interface, reboot the app from its management menu. No new secrets or dependencies are required for the Component 2 page.
 
 ## Install on Windows
 
@@ -221,7 +223,7 @@ Component 2 places selected Component 1 teaching-group instances into manually c
 
 Each placed group requires one teacher from its assigned resource pool. A pool's demand in a window is the number of groups assigned to that pool and window, including groups from different subjects or blocks. Its peak simultaneous demand is the **maximum across windows**, never their sum. A concurrency violation occurs when a pool's demand in one window exceeds its configured available teacher count.
 
-Windows are not weekly timetable periods. This component does not generate timetables, calculate teaching periods, allocate named teachers, or optimise assignments. The existing Streamlit app continues to display Component 1 only; use the CLI below for Component 2.
+Windows are not weekly timetable periods. This component does not generate timetables, calculate teaching periods, allocate named teachers, or optimise assignments. Use the Streamlit sidebar's **Concurrency scenarios (Component 2)** page or the CLI below to view the assessments.
 
 ### Run Component 2 on Windows
 
